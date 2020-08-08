@@ -53,9 +53,9 @@ def initialize_app():
 
             # Edge cases in the response
             if match:
-                if match and match.group(1) == 'H':
+                if match.group(1) == 'H':
                     line = 'SR'
-                elif match and match.group(1) == 'FS':
+                elif match.group(1) == 'FS':
                     line = 'SF'
                 else:
                     line = match.group(1)
@@ -89,9 +89,9 @@ def check_for_updates():
 
             # Edge cases in the response
             if match:
-                if match and match.group(1) == 'H':
+                if match.group(1) == 'H':
                     line = 'SR'
-                elif match and match.group(1) == 'FS':
+                elif match.group(1) == 'FS':
                     line = 'SF'
                 else:
                     line = match.group(1)
