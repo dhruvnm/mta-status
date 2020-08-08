@@ -18,13 +18,13 @@ scheduler = APScheduler()
 URL = "http://web.mta.info/status/ServiceStatusSubway.xml"
 
 # Current status of every line
-is_delayed = defaultdict(lambda: False)
+is_delayed = dict()
 
 # Total time in seconds a line has been delayed
 total_time_delayed = defaultdict(lambda: 0)
 
 # The time at which a line was marked as delayed
-time_delayed_at = defaultdict()
+time_delayed_at = dict()
 
 # The time at which data is initialized
 start_time = None
@@ -34,6 +34,9 @@ valid_lines = {'1', '2', '3', '4', '5', '6', '7', 'A', 'C', 'E', 'B', 'D', 'F', 
 
 def initialize_app():
     """Initializes the app with the current state of all lines"""
+
+    for line in valid_lines:
+        is_delayed[line] = False
 
     # Get and parse the data into a dictionary
     response = requests.get(URL)
