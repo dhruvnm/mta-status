@@ -18,10 +18,8 @@ This page just gives simple instructions about the available routes.
 
 ### Status
 To see the current status of a line, navigate to `localhost:5000/status/<line>`<br>
-Note requesting the status of a line that doesn't exist will simply tell you the line is not delayed.<br>
 The parameter `<line>` is case insensitive.
 
 ### Uptime
 To see what percentage of time a line is not delayed, navigate to `localhost:5000/uptime/<line>`<br>
-Note requesting the uptime of a line that doesn't exist will simply tell you the line is not delayed 100% of the time.<br>
 The parameter `<line>` is case insensitive.

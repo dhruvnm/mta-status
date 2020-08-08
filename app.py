@@ -29,6 +29,9 @@ time_delayed_at = defaultdict()
 # The time at which data is initialized
 start_time = None
 
+# Set of valid subway lines
+valid_lines = {'1', '2', '3', '4', '5', '6', '7', 'A', 'C', 'E', 'B', 'D', 'F', 'M', 'G', 'J', 'Z', 'L', 'N', 'Q', 'R', 'W', 'S', 'SR', 'SF', 'SIR'}
+
 def initialize_app():
     """Initializes the app with the current state of all lines"""
 
@@ -48,11 +51,27 @@ def initialize_app():
             # Loop through all journeys listed under the delay situation
             for journey in situation['Affects']['VehicleJourneys']['AffectedVehicleJourney']:
                 # Parse out the line number/letter
-                match = re.search(r'NYCT_(\w+)', journey['LineRef'])
+                match = re.search(r'NYCT_(\w*)', journey['LineRef'])
+
+                # Edge cases in the response
                 if match:
+                    if match.group(1) == 'SI':
+                        line = 'SIR'
+                    elif match.group(1) == '':
+                        match2 = re.search(r'\[(\w+)\]', situation['LongDescription'])
+                        if match and match2.group(1) == 'S':
+                            line = 'S'
+                        elif match and match2.group(1) == 'H':
+                            line = 'SR'
+                        elif match and match2.group(1) == 'FS':
+                            line = 'SF'
+                    else:
+                        line = match.group(1)
+
+                    
                     # Set the line as delayed and store its delay time
-                    is_delayed[match.group(1)] = True
-                    time_delayed_at[match.group(1)] = start_time
+                    is_delayed[line] = True
+                    time_delayed_at[line] = start_time
 
 @scheduler.task('interval', id='check_for_updates', seconds=60)
 def check_for_updates():
@@ -76,10 +95,24 @@ def check_for_updates():
             # Loop through all journeys listed under the delay situation
             for journey in situation['Affects']['VehicleJourneys']['AffectedVehicleJourney']:
                 # Parse out the line number/letter
-                match = re.search(r'NYCT_(\w+)', journey['LineRef'])
+                match = re.search(r'NYCT_(\w*)', journey['LineRef'])
+
+                # Edge cases in the response
                 if match:
-                    # Store the line in the curr_delayed set
-                    curr_delayed.add(match.group(1))
+                    if match.group(1) == 'SI':
+                        line = 'SIR'
+                    elif match.group(1) == '':
+                        match2 = re.search(r'\[(\w+)\]', situation['LongDescription'])
+                        if match and match2.group(1) == 'S':
+                            line = 'S'
+                        elif match and match2.group(1) == 'H':
+                            line = 'SR'
+                        elif match and match2.group(1) == 'FS':
+                            line = 'SF'
+                    else:
+                        line = match.group(1)
+
+                curr_delayed.add(line)
 
     # Iterate through all lines 
     for line, delayed in is_delayed.items():
@@ -113,6 +146,10 @@ def status(line):
     # Allows for case insensitive queries
     line = line.upper()
 
+    # Validate parameter
+    if line not in valid_lines:
+        return "Invalid line provided"
+
     if is_delayed[line]:
         return f"Line {line} is delayed"
     else:
@@ -124,6 +161,10 @@ def uptime(line):
 
     # Allows for case insensitive queries
     line = line.upper()
+
+    # Validate parameter
+    if line not in valid_lines:
+        return "Invalid line provided"
 
     curr_time = datetime.now()
 
