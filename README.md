@@ -13,7 +13,7 @@ The service will run on `localhost:5000`. The status of each line will be update
 
 ## Routes
 ### Home
-The home page is at `localhost:5000.`<br>
+The home page is at `localhost:5000`.<br>
 This page just gives simple instructions about the available routes.
 
 ### Status
