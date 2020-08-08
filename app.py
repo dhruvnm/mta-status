@@ -1,0 +1,148 @@
+import requests
+import xmltodict
+from collections import defaultdict
+import re
+from datetime import datetime
+from flask_apscheduler import APScheduler
+from flask import Flask
+
+class Config(object):
+    SCHEDULER_API_ENABLED = True
+
+app = Flask(__name__)
+app.config.from_object(Config())
+scheduler = APScheduler()
+
+# This is the MTA api endpoint for subway service status
+# Their website says it's refreshed every minute but doesn't always seem to be the case
+URL = "http://web.mta.info/status/ServiceStatusSubway.xml"
+
+# Current status of every line
+is_delayed = defaultdict(lambda: False)
+
+# Total time in seconds a line has been delayed
+total_time_delayed = defaultdict(lambda: 0)
+
+# The time at which a line was marked as delayed
+time_delayed_at = defaultdict()
+
+# The time at which data is initialized
+start_time = None
+
+def initialize_app():
+    """Initializes the app with the current state of all lines"""
+
+    # Get and parse the data into a dictionary
+    response = requests.get(URL)
+    tree = response.content
+    data = xmltodict.parse(tree)
+
+    # Set the time data is initialized
+    global start_time
+    start_time = datetime.now()
+
+    # Loop through all situation elements
+    for situation in data['Siri']['ServiceDelivery']['SituationExchangeDelivery']['Situations']['PtSituationElement']:
+        # We only care about delays. Everything else will be considered "not delayed"
+        if situation['ReasonName'] == 'Delays':
+            # Loop through all journeys listed under the delay situation
+            for journey in situation['Affects']['VehicleJourneys']['AffectedVehicleJourney']:
+                # Parse out the line number/letter
+                match = re.search(r'NYCT_(\w+)', journey['LineRef'])
+                if match:
+                    # Set the line as delayed and store its delay time
+                    is_delayed[match.group(1)] = True
+                    time_delayed_at[match.group(1)] = start_time
+
+@scheduler.task('interval', id='check_for_updates', seconds=60)
+def check_for_updates():
+    """Checks for updates to line status every minute"""
+
+    check_time = datetime.now()
+    print(f"[{check_time}] Checking for updates...")
+
+    # Get and parse the data into a dictionary
+    response = requests.get(URL)
+    tree = response.content
+    data = xmltodict.parse(tree)
+
+    # This set will store which lines are delayed right now
+    curr_delayed = set()
+
+    # Loop through all situation elements
+    for situation in data['Siri']['ServiceDelivery']['SituationExchangeDelivery']['Situations']['PtSituationElement']:
+        # We only care about delays. Everything else will be considered "not delayed"
+        if situation['ReasonName'] == 'Delays':
+            # Loop through all journeys listed under the delay situation
+            for journey in situation['Affects']['VehicleJourneys']['AffectedVehicleJourney']:
+                # Parse out the line number/letter
+                match = re.search(r'NYCT_(\w+)', journey['LineRef'])
+                if match:
+                    # Store the line in the curr_delayed set
+                    curr_delayed.add(match.group(1))
+
+    # Iterate through all lines 
+    for line, delayed in is_delayed.items():
+        # If the line just switched to delayed, switch status and store the new delay time
+        if not delayed and line in curr_delayed:
+            is_delayed[line] = True
+            time_delayed_at[line] = datetime.now()
+            print(f"[{check_time}] Line {line} is experiencing delays")
+
+        # If the line just switched to not delayed, switch status and update total time delayed
+        elif delayed and line not in curr_delayed:
+            is_delayed[line] = False
+            time_delayed = datetime.now() - time_delayed_at[line]
+            total_time_delayed[line] += time_delayed.total_seconds()
+            print(f"[{check_time}] Line {line} is now recovered")
+
+
+@app.route("/")
+def home():
+    """Simple home page to return basic instructions"""
+
+    return """Welcome to Dhruv's MTA service checker! <br>
+    Navigate to /status/&ltline&gt to see the current status of a line. <br>
+    Navigate to /uptime/&ltline&gt to see the percentage of time the line isn't delayed. <br>
+    The console will print whenever the status of a line changes (updates every minute)."""
+
+@app.route("/status/<line>")
+def status(line):
+    """Check the current status of a line"""
+
+    # Allows for case insensitive queries
+    line = line.upper()
+
+    if is_delayed[line]:
+        return f"Line {line} is delayed"
+    else:
+        return f"Line {line} is not delayed"
+
+@app.route("/uptime/<line>")
+def uptime(line):
+    """Check the percentage of time a line is not delayed"""
+
+    # Allows for case insensitive queries
+    line = line.upper()
+
+    curr_time = datetime.now()
+
+    # In case a line is currently delayed we need to add the delta from the time it was delayed
+    if is_delayed[line]:
+        delta = curr_time - time_delayed_at[line]
+        delta_sec = delta.total_seconds()
+    else:
+        delta_sec = 0
+
+    # Calculate the uptime percentage
+    total_time = curr_time - start_time
+    percentage = 100 * (1 - (total_time_delayed[line] + delta_sec) / total_time.total_seconds())
+
+    return f"Line {line} is not delayed {percentage}% of the time"
+
+if __name__ == '__main__':
+    # Initialize and run app
+    initialize_app()
+    scheduler.init_app(app)
+    scheduler.start()
+    app.run()
