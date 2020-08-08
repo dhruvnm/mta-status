@@ -48,30 +48,22 @@ def initialize_app():
     for situation in data['Siri']['ServiceDelivery']['SituationExchangeDelivery']['Situations']['PtSituationElement']:
         # We only care about delays. Everything else will be considered "not delayed"
         if situation['ReasonName'] == 'Delays':
-            # Loop through all journeys listed under the delay situation
-            for journey in situation['Affects']['VehicleJourneys']['AffectedVehicleJourney']:
-                # Parse out the line number/letter
-                match = re.search(r'NYCT_(\w*)', journey['LineRef'])
+            # Parse out the line number/letter
+            match = re.search(r'\[(\w+)\]', situation['LongDescription'])
 
-                # Edge cases in the response
-                if match:
-                    if match.group(1) == 'SI':
-                        line = 'SIR'
-                    elif match.group(1) == '':
-                        match2 = re.search(r'\[(\w+)\]', situation['LongDescription'])
-                        if match and match2.group(1) == 'S':
-                            line = 'S'
-                        elif match and match2.group(1) == 'H':
-                            line = 'SR'
-                        elif match and match2.group(1) == 'FS':
-                            line = 'SF'
-                    else:
-                        line = match.group(1)
+            # Edge cases in the response
+            if match:
+                if match and match.group(1) == 'H':
+                    line = 'SR'
+                elif match and match.group(1) == 'FS':
+                    line = 'SF'
+                else:
+                    line = match.group(1)
 
-                    
-                    # Set the line as delayed and store its delay time
-                    is_delayed[line] = True
-                    time_delayed_at[line] = start_time
+                
+                # Set the line as delayed and store its delay time
+                is_delayed[line] = True
+                time_delayed_at[line] = start_time
 
 @scheduler.task('interval', id='check_for_updates', seconds=60)
 def check_for_updates():
@@ -92,25 +84,18 @@ def check_for_updates():
     for situation in data['Siri']['ServiceDelivery']['SituationExchangeDelivery']['Situations']['PtSituationElement']:
         # We only care about delays. Everything else will be considered "not delayed"
         if situation['ReasonName'] == 'Delays':
-            # Loop through all journeys listed under the delay situation
-            for journey in situation['Affects']['VehicleJourneys']['AffectedVehicleJourney']:
-                # Parse out the line number/letter
-                match = re.search(r'NYCT_(\w*)', journey['LineRef'])
+            # Parse out the line number/letter
+            match = re.search(r'\[(\w+)\]', situation['LongDescription'])
 
-                # Edge cases in the response
-                if match:
-                    if match.group(1) == 'SI':
-                        line = 'SIR'
-                    elif match.group(1) == '':
-                        match2 = re.search(r'\[(\w+)\]', situation['LongDescription'])
-                        if match and match2.group(1) == 'S':
-                            line = 'S'
-                        elif match and match2.group(1) == 'H':
-                            line = 'SR'
-                        elif match and match2.group(1) == 'FS':
-                            line = 'SF'
-                    else:
-                        line = match.group(1)
+            # Edge cases in the response
+            if match:
+                if match and match.group(1) == 'H':
+                    line = 'SR'
+                elif match and match.group(1) == 'FS':
+                    line = 'SF'
+                else:
+                    line = match.group(1)
+
 
                 curr_delayed.add(line)
 
