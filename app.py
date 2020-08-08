@@ -64,6 +64,7 @@ def initialize_app():
                 # Set the line as delayed and store its delay time
                 is_delayed[line] = True
                 time_delayed_at[line] = start_time
+                print(f"[{start_time}] Line {line} is experiencing delays")
 
 @scheduler.task('interval', id='check_for_updates', seconds=60)
 def check_for_updates():
