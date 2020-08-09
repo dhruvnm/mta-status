@@ -52,16 +52,17 @@ def initialize_app():
         # We only care about delays. Everything else will be considered "not delayed"
         if situation['ReasonName'] == 'Delays':
             # Parse out the line number/letter
-            match = re.search(r'\[(\w+)\]', situation['LongDescription'])
+            matches = re.findall(r'\[(\w+)\]', situation['LongDescription'])
+            matches = set(matches)
 
-            # Edge cases in the response
-            if match:
-                if match.group(1) == 'H':
+            for match in matches:
+                # Edge cases in the response
+                if match == 'H':
                     line = 'SR'
-                elif match.group(1) == 'FS':
+                elif match == 'FS':
                     line = 'SF'
                 else:
-                    line = match.group(1)
+                    line = match
 
                 
                 # Set the line as delayed and store its delay time
@@ -89,16 +90,17 @@ def check_for_updates():
         # We only care about delays. Everything else will be considered "not delayed"
         if situation['ReasonName'] == 'Delays':
             # Parse out the line number/letter
-            match = re.search(r'\[(\w+)\]', situation['LongDescription'])
+            matches = re.findall(r'\[(\w+)\]', situation['LongDescription'])
+            matches = set(matches)
 
-            # Edge cases in the response
-            if match:
-                if match.group(1) == 'H':
+            for match in matches:
+                # Edge cases in the response
+                if match == 'H':
                     line = 'SR'
-                elif match.group(1) == 'FS':
+                elif match == 'FS':
                     line = 'SF'
                 else:
-                    line = match.group(1)
+                    line = match
 
 
                 curr_delayed.add(line)
